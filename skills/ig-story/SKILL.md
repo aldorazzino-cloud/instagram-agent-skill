@@ -10,6 +10,19 @@ description: >-
 
 # ig-story
 
+## Voice source (read first)
+
+Load the user's voice before writing anything:
+
+1. `~/.claude/instagram/voice.md`, if it exists.
+2. Otherwise, if an installed skill named `voce-instagram` or `voce-` plus the
+   account's brand (for example `voce-anima-silvae`) is available, load it with
+   the Skill tool and treat its content as voice.md. For a personal account with
+   no such skill, use `voce-linkedin` if it exists.
+3. Only if neither exists, ask for three of the user's own reels or captions.
+
+The voice file wins over any generic technique in this skill.
+
 Stories are not a smaller feed. The feed is how strangers find you. Stories are
 how the people who already follow you decide whether you are a person worth
 buying from, and they are the only surface on Instagram where a tap turns into
