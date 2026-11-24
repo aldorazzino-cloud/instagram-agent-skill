@@ -30,6 +30,10 @@ the words out loud. A line you would never say is not a draft, it is a retake.
 - **Words I would never say out loud:**
 - **Do I swear:** (yes / mild / no)
 - **Emoji in captions:** (never / one, rarely / freely)
+- **Language:** (English / Italiano. If Italian, write every script and caption
+  in Italian and run ig-human with `--lang it`.)
+- **Italian only - spoken markers I actually use:** (es. "insomma", "tipo",
+  "comunque", frasi che iniziano con "E" o "Ma")
 - **Face on camera:** (always / sometimes / faceless)
 - **Voiceover or to-camera:**
 - **Pace:** (words per minute, if you have timed yourself reading a script.

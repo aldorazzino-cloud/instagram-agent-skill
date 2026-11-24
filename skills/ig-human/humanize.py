@@ -35,6 +35,8 @@ import unicodedata
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LEX = os.path.join(HERE, "slop.json")
+sys.path.insert(0, HERE)
+import lang as L  # noqa: E402
 
 URL_RE = re.compile(r"https?://\S+|www\.\S+|\S+@\S+\.\S+")
 SENT_RE = re.compile(r"[^.!?\n]+[.!?]*")
@@ -133,10 +135,14 @@ def pass_lexical(text, lex):
                      key=lambda e: len(e["find"]), reverse=True)
     for entry in entries:
         find = entry["find"]
-        pattern = re.compile(r"\b" + re.escape(find).replace(r"\ ", r"\s+") + r"\b",
-                             re.IGNORECASE)
+        pattern = L.term_pattern(find)
         found = pattern.findall(text)
         if not found:
+            continue
+        if entry["replace"] is None:
+            # Flag only: in Italian a blind swap breaks agreement or meaning.
+            hits.append({"find": find, "replace": "(segnalato, riscrivere a mano)",
+                         "count": len(found), "family": entry["family"], "flag": True})
             continue
         hits.append({"find": find, "replace": entry["replace"] or "(deleted)",
                      "count": len(found), "family": entry["family"]})
@@ -196,10 +202,10 @@ def restore_capitals(original, text):
     a deliberately lower-case voice is a style, not an artefact, and shouting
     over it would be exactly the kind of thing this script exists to stop.
     """
-    starts = re.findall(r"(?:^|[.!?]\s+|\n)\s*([A-Za-z])", original)
+    starts = re.findall(r"(?:^|[.!?]\s+|\n)\s*([A-Za-zÀ-ÿ])", original)
     if not starts or sum(1 for c in starts if c.isupper()) * 2 < len(starts):
         return text
-    return re.sub(r"(?:^|(?<=[.!?] )|(?<=[.!?]\n)|(?<=\n))\s*([a-z])",
+    return re.sub(r"(?:^|(?<=[.!?] )|(?<=[.!?]\n)|(?<=\n))\s*([a-zà-ÿ])",
                   lambda m: m.group(0)[:-1] + m.group(1).upper(), text)
 
 
@@ -225,9 +231,10 @@ def render_report(report, out=sys.stderr):
 
     total = sum(h["count"] for h in report["invisible"]) \
         + sum(h["count"] for h in report["typographic"]) \
-        + sum(h["count"] for h in report["lexical"])
+        + sum(h["count"] for h in report["lexical"] if not h.get("flag"))
 
     head("HUMANIZE REPORT")
+    print(f"language: {report.get('language', 'en')}", file=out)
     print(f"{total} machine artefacts removed, "
           f"{len(report['structures'])} structural tells flagged for rewrite", file=out)
 
@@ -247,7 +254,7 @@ def render_report(report, out=sys.stderr):
         head("4. STRUCTURAL TELLS  (not auto-fixed - rewrite these yourself)")
         for h in report["structures"]:
             print(f"  {h['count']:>3}x  {h['name']}\n        {h['fix']}", file=out)
-    if not any(report.values()):
+    if not any(v for k, v in report.items() if k != "language"):
         head("CLEAN")
         print("  Nothing to strip.", file=out)
     print("", file=out)
@@ -259,12 +266,15 @@ def main():
     ap.add_argument("-o", "--out", help="write cleaned text here instead of stdout")
     ap.add_argument("--report", action="store_true", help="print what changed, to stderr")
     ap.add_argument("--json", action="store_true", help="emit {text, report} as JSON")
-    ap.add_argument("--lexicon", default=LEX, help="path to slop.json")
+    ap.add_argument("--lexicon", default=None, help="override the lexicon file")
+    ap.add_argument("--lang", default="auto", choices=["auto", "en", "it"])
     args = ap.parse_args()
 
     raw = sys.stdin.read() if args.input == "-" else open(args.input, encoding="utf-8").read()
-    lex = load_lexicon(args.lexicon)
+    language = L.resolve(args.lang, raw)
+    lex = load_lexicon(args.lexicon or L.LEXICONS[language])
     clean, report = humanize(raw, lex)
+    report["language"] = language
 
     if args.json:
         print(json.dumps({"text": clean, "report": report}, indent=2, ensure_ascii=False))
